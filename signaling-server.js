@@ -1,50 +1,55 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
 
-const express = require("express");
-const http = require("http");
-const socketIo = require("socket.io");
-
+// === Express setup ===
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
+const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: "*", // Adjust this for security in production
     methods: ["GET", "POST"]
   }
 });
 
+app.use(cors());
+app.get("/", (req, res) => {
+  res.send("Mafia signaling server is running.");
+});
+
+// === Global player tracking ===
+let players = {}; // { socketId: username }
+
+// === WebSocket handling ===
 io.on("connection", socket => {
-  console.log("User connected: " + socket.id);
+  console.log("🔌 New client connected:", socket.id);
 
   socket.on("join", room => {
     socket.join(room);
-    socket.to(room).emit("user-joined", socket.id);
+    console.log(`🧑 ${socket.id} joined room: ${room}`);
   });
 
-  socket.on("offer", (data) => {
-    socket.to(data.to).emit("offer", {
-      from: socket.id,
-      offer: data.offer
-    });
+  socket.on("register", ({ id, name }) => {
+    players[id] = name;
+    console.log(`✅ Registered ${name} (${id})`);
+    io.to("mafia-room").emit("update-player-list", players);
   });
 
-  socket.on("answer", (data) => {
-    socket.to(data.to).emit("answer", {
-      from: socket.id,
-      answer: data.answer
-    });
-  });
-
-  socket.on("ice-candidate", (data) => {
-    socket.to(data.to).emit("ice-candidate", {
-      from: socket.id,
-      candidate: data.candidate
-    });
+  socket.on("ready", () => {
+    console.log(`🎥 ${socket.id} is ready`);
+    // Future: handle media signaling here if needed
   });
 
   socket.on("disconnect", () => {
-    socket.broadcast.emit("user-left", socket.id);
+    console.log("❌ Client disconnected:", socket.id);
+    delete players[socket.id];
+    io.to("mafia-room").emit("update-player-list", players);
   });
 });
 
+// === Start server ===
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Signaling server running on port " + PORT));
+server.listen(PORT, () => {
+  console.log(`🚀 Signaling server listening on port ${PORT}`);
+});
