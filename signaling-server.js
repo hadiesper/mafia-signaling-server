@@ -26,7 +26,25 @@ function broadcastPlayerList() {
   if (Object.keys(players).length === 3) {
     console.log("🟢 3 players joined. Starting countdown.");
     io.to("mafia-room").emit("start-countdown");
+
+    setTimeout(() => {
+      assignRolesAndNotify();
+    }, 10000); // Wait 10s before assigning roles
   }
+}
+
+function assignRolesAndNotify() {
+  const ids = Object.keys(players);
+  if (ids.length !== 3) return;
+
+  const mafiaIndex = Math.floor(Math.random() * 3);
+  const mafiaId = ids[mafiaIndex];
+  const civilians = ids.filter(id => id !== mafiaId);
+
+  io.to(mafiaId).emit("role-assigned", "mafia");
+  civilians.forEach(id => io.to(id).emit("role-assigned", "civilian"));
+
+  console.log(`🎭 Roles assigned: Mafia=${players[mafiaId]}, Civilians=${civilians.map(id => players[id]).join(", ")}`);
 }
 
 io.on("connection", socket => {
