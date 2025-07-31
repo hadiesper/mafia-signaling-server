@@ -21,29 +21,35 @@ app.get("/", (req, res) => {
 
 let players = {};
 
+function broadcastPlayerList() {
+  io.to("mafia-room").emit("update-player-list", players);
+  if (Object.keys(players).length === 3) {
+    console.log("🟢 3 players joined. Starting countdown.");
+    io.to("mafia-room").emit("start-countdown");
+  }
+}
+
 io.on("connection", socket => {
-  console.log("🔌 New client connected:", socket.id);
+  console.log("🔌 Connected:", socket.id);
 
   socket.on("join", room => {
     socket.join(room);
-    console.log(`🧑 ${socket.id} joined room: ${room}`);
+    console.log(`🧑 ${socket.id} joined ${room}`);
   });
 
   socket.on("register", ({ id, name }) => {
     players[id] = name;
-    console.log(`✅ Registered ${name} (${id})`);
-    console.log("📢 Broadcasting players:", players);
-    io.to("mafia-room").emit("update-player-list", players);
+    broadcastPlayerList();
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ Client disconnected:", socket.id);
+    console.log("❌ Disconnected:", socket.id);
     delete players[socket.id];
-    io.to("mafia-room").emit("update-player-list", players);
+    broadcastPlayerList();
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`🚀 Signaling server listening on port ${PORT}`);
+  console.log(`🚀 Server listening on port ${PORT}`);
 });
