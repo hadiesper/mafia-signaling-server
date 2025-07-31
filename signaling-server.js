@@ -3,25 +3,29 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
-// === Express setup ===
+// === Setup Express and HTTP server ===
 const app = express();
 const server = http.createServer(app);
+
+// === Setup Socket.IO with CORS ===
 const io = new Server(server, {
   cors: {
-    origin: "*", // Adjust this for security in production
+    origin: "*", // Allow all origins (for dev only, restrict for production)
     methods: ["GET", "POST"]
   }
 });
 
 app.use(cors());
+
+// ✅ Root route for Render health check
 app.get("/", (req, res) => {
   res.send("Mafia signaling server is running.");
 });
 
 // === Global player tracking ===
-let players = {}; // { socketId: username }
+let players = {}; // Format: { socketId: username }
 
-// === WebSocket handling ===
+// === Socket.IO handling ===
 io.on("connection", socket => {
   console.log("🔌 New client connected:", socket.id);
 
@@ -33,12 +37,13 @@ io.on("connection", socket => {
   socket.on("register", ({ id, name }) => {
     players[id] = name;
     console.log(`✅ Registered ${name} (${id})`);
+    console.log("📢 Broadcasting players:", players);
     io.to("mafia-room").emit("update-player-list", players);
   });
 
   socket.on("ready", () => {
     console.log(`🎥 ${socket.id} is ready`);
-    // Future: handle media signaling here if needed
+    // Reserved for future signaling (e.g., WebRTC SDP exchange)
   });
 
   socket.on("disconnect", () => {
